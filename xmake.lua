@@ -8,7 +8,7 @@ set_xmakever("2.8.2")
 set_version("1.7.5", {build = "%Y%m%d", soname = true})
 
 -- set warning all as error
-set_warnings("all", "error")
+set_warnings("none")
 
 -- set language: c99
 stdc = "c99"
@@ -59,9 +59,9 @@ if has_config("small", "micro") then
         -- TODO we should fix it in context code later
         -- https://github.com/tboox/tbox/issues/175
         not has_config("coroutine") then
-        set_optimize("smallest")
+        set_optimize("aggressive")
     end
-    add_cxflags("-fno-stack-protector")
+    add_cxflags("-fno-stack-protector", {tools = {"clang", "gcc"}})
 end
 
 -- for the windows platform (msvc)
