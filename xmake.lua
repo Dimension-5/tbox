@@ -11,7 +11,7 @@ set_version("1.7.5", {build = "%Y%m%d", soname = true})
 set_warnings("none")
 
 -- set language: c99
-stdc = "c99"
+stdc = "clatest"
 set_languages(stdc)
 
 -- add defines to config.h
