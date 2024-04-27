@@ -25,7 +25,6 @@
  */
 #define TB_TRACE_MODULE_NAME            "allocator"
 #define TB_TRACE_MODULE_DEBUG           (0)
-
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
  */
@@ -34,6 +33,9 @@
 #include "../libc/libc.h"
 #include "../utils/utils.h"
 #include "../platform/platform.h"
+#ifdef TB_USE_MIMALLOC
+#include <mimalloc.h>
+#endif
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * globals
@@ -59,30 +61,34 @@ tb_size_t tb_allocator_type(tb_allocator_ref_t allocator)
 }
 tb_pointer_t tb_allocator_malloc_(tb_allocator_ref_t allocator, tb_size_t size __tb_debug_decl__)
 {
-    // check
-    tb_assert_and_check_return_val(allocator, tb_null);
+#ifdef TB_USE_MIMALLOC
+        return (tb_pointer_t)mi_malloc(size);
+#else
+        // check
+        tb_assert_and_check_return_val(allocator, tb_null);
 
-    // enter
-    tb_bool_t lockit = !(allocator->flag & TB_ALLOCATOR_FLAG_NOLOCK);
-    if (lockit) tb_spinlock_enter(&allocator->lock);
+        // enter
+        tb_bool_t lockit = !(allocator->flag & TB_ALLOCATOR_FLAG_NOLOCK);
+        if (lockit) tb_spinlock_enter(&allocator->lock);
 
-    // malloc it
-    tb_pointer_t data = tb_null;
-    if (allocator->malloc) data = allocator->malloc(allocator, size __tb_debug_args__);
-    else if (allocator->large_malloc) data = allocator->large_malloc(allocator, size, tb_null __tb_debug_args__);
+        // malloc it
+        tb_pointer_t data = tb_null;
+        if (allocator->malloc) data = allocator->malloc(allocator, size __tb_debug_args__);
+        else if (allocator->large_malloc) data = allocator->large_malloc(allocator, size, tb_null __tb_debug_args__);
 
-    // trace
-    tb_trace_d("malloc(%lu): %p at %s(): %d, %s", size, data __tb_debug_args__);
+        // trace
+        tb_trace_d("malloc(%lu): %p at %s(): %d, %s", size, data __tb_debug_args__);
 
-    // check
-    tb_assertf(data, "malloc(%lu) failed!", size);
-    tb_assertf(!(((tb_size_t)data) & (TB_POOL_DATA_ALIGN - 1)), "malloc(%lu): unaligned data: %p", size, data);
+        // check
+        tb_assertf(data, "malloc(%lu) failed!", size);
+        tb_assertf(!(((tb_size_t)data) & (TB_POOL_DATA_ALIGN - 1)), "malloc(%lu): unaligned data: %p", size, data);
 
-    // leave
-    if (lockit) tb_spinlock_leave(&allocator->lock);
+        // leave
+        if (lockit) tb_spinlock_leave(&allocator->lock);
 
-    // ok?
-    return data;
+        // ok?
+        return data;
+#endif
 }
 tb_pointer_t tb_allocator_malloc0_(tb_allocator_ref_t allocator, tb_size_t size __tb_debug_decl__)
 {
@@ -122,47 +128,55 @@ tb_pointer_t tb_allocator_nalloc0_(tb_allocator_ref_t allocator, tb_size_t item,
 }
 tb_pointer_t tb_allocator_ralloc_(tb_allocator_ref_t allocator, tb_pointer_t data, tb_size_t size __tb_debug_decl__)
 {
-    // check
-    tb_assert_and_check_return_val(allocator, tb_null);
+#ifdef TB_USE_MIMALLOC
+        return (tb_pointer_t)mi_realloc(data, size);
+#else
+        // check
+        tb_assert_and_check_return_val(allocator, tb_null);
 
-    // enter
-    tb_bool_t lockit = !(allocator->flag & TB_ALLOCATOR_FLAG_NOLOCK);
-    if (lockit) tb_spinlock_enter(&allocator->lock);
+        // enter
+        tb_bool_t lockit = !(allocator->flag & TB_ALLOCATOR_FLAG_NOLOCK);
+        if (lockit) tb_spinlock_enter(&allocator->lock);
 
-    // ralloc it
-    tb_pointer_t data_new = tb_null;
-    if (allocator->ralloc) data_new = allocator->ralloc(allocator, data, size __tb_debug_args__);
-    else if (allocator->large_ralloc) data_new = allocator->large_ralloc(allocator, data, size, tb_null __tb_debug_args__);
+        // ralloc it
+        tb_pointer_t data_new = tb_null;
+        if (allocator->ralloc) data_new = allocator->ralloc(allocator, data, size __tb_debug_args__);
+        else if (allocator->large_ralloc) data_new = allocator->large_ralloc(allocator, data, size, tb_null __tb_debug_args__);
 
-    // trace
-    tb_trace_d("ralloc(%p, %lu): %p at %s(): %d, %s", data, size, data_new __tb_debug_args__);
-
-    // failed? dump it
-#ifdef __tb_debug__
-    if (!data_new)
-    {
         // trace
-        tb_trace_e("ralloc(%p, %lu) failed! at %s(): %lu, %s", data, size, func_, line_, file_);
+        tb_trace_d("ralloc(%p, %lu): %p at %s(): %d, %s", data, size, data_new __tb_debug_args__);
 
-        // dump data
-        tb_pool_data_dump((tb_byte_t const*)data, tb_true, "[large_allocator]: [error]: ");
+        // failed? dump it
+    #ifdef __tb_debug__
+        if (!data_new)
+        {
+            // trace
+            tb_trace_e("ralloc(%p, %lu) failed! at %s(): %lu, %s", data, size, func_, line_, file_);
 
-        // abort
-        tb_abort();
-    }
+            // dump data
+            tb_pool_data_dump((tb_byte_t const*)data, tb_true, "[large_allocator]: [error]: ");
+
+            // abort
+            tb_abort();
+        }
+    #endif
+
+        // check
+        tb_assertf(!(((tb_size_t)data_new) & (TB_POOL_DATA_ALIGN - 1)), "ralloc(%lu): unaligned data: %p", size, data);
+
+        // leave
+        if (lockit) tb_spinlock_leave(&allocator->lock);
+
+        // ok?
+        return data_new;
 #endif
-
-    // check
-    tb_assertf(!(((tb_size_t)data_new) & (TB_POOL_DATA_ALIGN - 1)), "ralloc(%lu): unaligned data: %p", size, data);
-
-    // leave
-    if (lockit) tb_spinlock_leave(&allocator->lock);
-
-    // ok?
-    return data_new;
 }
 tb_bool_t tb_allocator_free_(tb_allocator_ref_t allocator, tb_pointer_t data __tb_debug_decl__)
 {
+#ifdef TB_USE_MIMALLOC
+    mi_free(data);
+    return tb_true;
+#else
     // check
     tb_assert_and_check_return_val(allocator, tb_false);
 
@@ -198,9 +212,13 @@ tb_bool_t tb_allocator_free_(tb_allocator_ref_t allocator, tb_pointer_t data __t
 
     // ok?
     return ok;
+#endif
 }
 tb_pointer_t tb_allocator_large_malloc_(tb_allocator_ref_t allocator, tb_size_t size, tb_size_t* real __tb_debug_decl__)
 {
+#ifdef TB_USE_MIMALLOC
+    return (tb_pointer_t)malloc(size);
+#else
     // check
     tb_assert_and_check_return_val(allocator, tb_null);
 
@@ -231,6 +249,7 @@ tb_pointer_t tb_allocator_large_malloc_(tb_allocator_ref_t allocator, tb_size_t 
 
     // ok?
     return data;
+#endif
 }
 tb_pointer_t tb_allocator_large_malloc0_(tb_allocator_ref_t allocator, tb_size_t size, tb_size_t* real __tb_debug_decl__)
 {
@@ -270,6 +289,9 @@ tb_pointer_t tb_allocator_large_nalloc0_(tb_allocator_ref_t allocator, tb_size_t
 }
 tb_pointer_t tb_allocator_large_ralloc_(tb_allocator_ref_t allocator, tb_pointer_t data, tb_size_t size, tb_size_t* real __tb_debug_decl__)
 {
+#ifdef TB_USE_MIMALLOC
+    return (tb_pointer_t)mi_realloc(data, size);
+#else
     // check
     tb_assert_and_check_return_val(allocator, tb_null);
 
@@ -314,9 +336,14 @@ tb_pointer_t tb_allocator_large_ralloc_(tb_allocator_ref_t allocator, tb_pointer
 
     // ok?
     return data_new;
+#endif
 }
 tb_bool_t tb_allocator_large_free_(tb_allocator_ref_t allocator, tb_pointer_t data __tb_debug_decl__)
 {
+#ifdef TB_USE_MIMALLOC
+    free(data);
+    return tb_true;
+#else
     // check
     tb_assert_and_check_return_val(allocator, tb_false);
 
@@ -352,6 +379,7 @@ tb_bool_t tb_allocator_large_free_(tb_allocator_ref_t allocator, tb_pointer_t da
 
     // ok?
     return ok;
+#endif
 }
 tb_pointer_t tb_allocator_align_malloc_(tb_allocator_ref_t allocator, tb_size_t size, tb_size_t align __tb_debug_decl__)
 {

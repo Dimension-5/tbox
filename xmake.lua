@@ -88,6 +88,7 @@ end
 if is_plat("linux") and is_mode("debug") then
     add_ldflags("-rdynamic")
 end
-
+add_deps("mimalloc")
+add_defines("TB_USE_MIMALLOC")
 -- include project sources
 includes("src")
