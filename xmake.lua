@@ -69,9 +69,9 @@ if is_plat("windows") then
     add_defines("NOCRYPT", "NOGDI")
     if is_mode("debug") then
         add_cxflags("-Gs", "-RTC1")
-        set_runtimes("MTd")
+        set_runtimes("MDd")
     else
-        set_runtimes("MT")
+        set_runtimes("MD")
     end
     add_syslinks("ws2_32", "user32")
 elseif is_plat("android") then
