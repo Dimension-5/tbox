@@ -5,7 +5,7 @@ set_project("tbox")
 set_xmakever("2.8.2")
 
 -- set project version
-set_version("1.7.5", {build = "%Y%m%d", soname = true})
+set_version("1.7.6", {build = "%Y%m%d", soname = true})
 
 -- set warning all as error
 set_warnings("none")
@@ -33,6 +33,13 @@ end
 if is_plat("wasm") then
     add_requires("emscripten")
     set_toolchains("emcc@emscripten")
+end
+
+-- set cosmocc toolchain, e.g. xmake f -p linux --cosmocc=y
+if has_config("cosmocc") then
+    add_requires("cosmocc")
+    set_toolchains("@cosmocc")
+    set_policy("build.ccache", false)
 end
 
 -- add build modes
