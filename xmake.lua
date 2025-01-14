@@ -65,7 +65,7 @@ if has_config("small", "micro") then
         -- coroutine maybe crash if we enable lto on windows, we disable small mode.
         -- TODO we should fix it in context code later
         -- https://github.com/tboox/tbox/issues/175
-        not has_config("coroutine") then
+    not has_config("coroutine") then
         set_optimize("aggressive")
     end
     add_cxflags("-fno-stack-protector", {tools = {"clang", "gcc"}})
