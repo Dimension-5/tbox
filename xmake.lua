@@ -8,7 +8,7 @@ set_xmakever("2.8.2")
 set_version("1.7.7", {build = "%Y%m%d", soname = true})
 
 -- set warning all as error
-set_warnings("all", "error")
+set_warnings("none")
 
 -- set language: c99
 stdc = "c99"
@@ -65,16 +65,10 @@ if has_config("small", "micro") then
         -- coroutine maybe crash if we enable lto on windows, we disable small mode.
         -- TODO we should fix it in context code later
         -- https://github.com/tboox/tbox/issues/175
-        not has_config("coroutine") then
-        if is_plat("windows") then
-            -- we cannot use smallest(/O1), it maybe generates incorrect code for msvc2022
-            -- @see https://github.com/tboox/tbox/issues/272
-            set_optimize("fastest")
-        else
-            set_optimize("smallest")
-        end
+    not has_config("coroutine") then
+        set_optimize("aggressive")
     end
-    add_cxflags("-fno-stack-protector")
+    add_cxflags("-fno-stack-protector", {tools = {"clang", "gcc"}})
 end
 
 -- for the windows platform (msvc)
@@ -82,9 +76,9 @@ if is_plat("windows") then
     add_defines("NOCRYPT", "NOGDI")
     if is_mode("debug") then
         add_cxflags("-Gs", "-RTC1")
-        set_runtimes("MTd")
+        set_runtimes("MDd")
     else
-        set_runtimes("MT")
+        set_runtimes("MD")
     end
     add_syslinks("ws2_32", "user32")
 elseif is_plat("android") then

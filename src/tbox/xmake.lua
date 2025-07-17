@@ -6,7 +6,7 @@ target("tbox")
     -- export all symbols for windows/dll
     if is_plat("windows") and is_kind("shared") then
         if is_mode("release") then
-            set_optimize("fastest")
+            set_optimize("aggressive")
         end
         add_rules("utils.symbols.export_all")
     end
